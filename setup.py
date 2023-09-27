@@ -10,13 +10,10 @@ with open("requirements.txt", "r") as f:
 
 setup(
     name='SummitVentureStudioMarketAnalyzer',
-    version='AUTO_BUMP_VERSION',
+    version='1.0.0',
     author='willem@wrench.ai',
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=find_packages(),
-    install_requires=required,
-    extras_require={
-        'optional': ['colorama>=0.4.6']
-    }
+    install_requires=required
 )
