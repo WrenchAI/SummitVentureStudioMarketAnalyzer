@@ -10,6 +10,9 @@ jobs:
   build-n-publish:
     runs-on: ubuntu-latest
     environment: pypi-deployment
+    concurrency: 
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
     steps:
     - uses: actions/checkout@v2
     - name: Fetch all tags
@@ -27,11 +30,24 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
+        # Fetch the latest tag
         LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
+        
+        # Set the starting version if no tags exist yet
         if [[ -z "$LATEST_TAG" ]]; then
           LATEST_TAG="0.0.0"
         fi
-        NEW_VERSION=$(echo "$LATEST_TAG" | awk -F. '{$NF = $NF + 1;} 1' OFS=.)
+        
+        # Loop to find a non-existing tag
+        while : ; do
+          NEW_VERSION=$(echo "$LATEST_TAG" | awk -F. '{$NF = $NF + 1;} 1' OFS=.)
+          # Check if this new tag already exists
+          if ! git rev-parse $NEW_VERSION >/dev/null 2>&1; then
+            break
+          fi
+          LATEST_TAG=$NEW_VERSION
+        done
+        
         echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
         sed -i "s/version='.*'/version='$NEW_VERSION'/" setup.py
 
