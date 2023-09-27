@@ -1,7 +1,7 @@
 from WrenchCL import ChatGptSuperClass
 
 
-class svs_body_handler(ChatGptSuperClass):
+class SvsChatGPTClass(ChatGptSuperClass):
 
     def __init__(self, text_body):
         self.text_body = text_body
