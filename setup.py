@@ -10,7 +10,7 @@ with open("requirements.txt", "r") as f:
 
 setup(
     name='SummitVentureStudioMarketAnalyzer',
-    version='1.0.0',
+    version='AUTO_BUMP_VERSION',
     author='willem@wrench.ai',
     long_description=long_description,
     long_description_content_type="text/markdown",
