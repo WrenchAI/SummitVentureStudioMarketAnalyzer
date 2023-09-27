@@ -17,9 +17,14 @@ class SvsChatGPTClass(ChatGptSuperClass):
         self.response_parser()
 
     def response_parser(self):
-        self.keywords = self.response.get('Keywords')
-        self.concepts = self.response.get('Concepts')
-        self.summary = self.response.get('Summary')
+        if isinstance(self.response, str):
+            self.keywords = ['N/A']
+            self.concepts = ['N/A']
+            self.summary = 'N/A'
+        else:
+            self.keywords = list(self.response.get('Keywords'))
+            self.concepts = list(self.response.get('Concepts'))
+            self.summary = str(self.response.get('Summary'))
 
     def _message_generator(self):
         self.message = [{"role": "system",
@@ -48,10 +53,10 @@ class SvsChatGPTClass(ChatGptSuperClass):
         ]
 
     def get_keywords(self):
-        return list(self.keywords)
+        return self.keywords
 
     def get_concepts(self):
-        return list(self.concepts)
+        return self.concepts
 
     def get_summary(self):
-        return str(self.summary)
+        return self.summary
