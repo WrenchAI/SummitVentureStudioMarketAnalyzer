@@ -245,7 +245,7 @@ class PitchBookProcessor(PitchBookAPI):
         rdsInstance.execute_query(sql)
 
     def get_count(self):
-        return len(self._get_pitchbook_ids())
+        return len(self._get_pitchbook_ids()[1])
 
     def process_pitchbook(self, download_count):
 
