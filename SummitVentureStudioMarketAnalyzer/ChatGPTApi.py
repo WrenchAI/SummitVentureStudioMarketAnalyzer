@@ -8,6 +8,7 @@ class SvsChatGPTClass(ChatGptSuperClass):
         self.keywords = None
         self.concepts = None
         self.summary = None
+        self.response = None
 
         self._function_generator()
         self._message_generator()
@@ -17,7 +18,7 @@ class SvsChatGPTClass(ChatGptSuperClass):
         self.response_parser()
 
     def response_parser(self):
-        if isinstance(self.response, str):
+        if self.response is None or isinstance(self.response, str):
             self.keywords = ['N/A']
             self.concepts = ['N/A']
             self.summary = 'N/A'
