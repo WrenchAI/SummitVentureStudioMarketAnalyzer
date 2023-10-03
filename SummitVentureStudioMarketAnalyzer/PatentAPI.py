@@ -286,8 +286,8 @@ class PatentProcessor(PatentAPI):
             retrieve_count = 0
             page = 1
 
+            wrench_logger.debug(f'{download_count = }, {self.count = }')
             download_count = min(download_count, self.count)
-            wrench_logger.debug(f'{download_count = }')
 
             last_record_unique_id = None
             while (not done) and (retrieve_count < download_count):
