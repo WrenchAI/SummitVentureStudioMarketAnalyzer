@@ -2,6 +2,7 @@ import time
 import pandas as pd
 import json
 
+from tenacity import retry, wait_random_exponential, stop_after_attempt
 from WrenchCL import ApiSuperClass
 from WrenchCL import wrench_logger
 from WrenchCL import rdsInstance
@@ -52,6 +53,7 @@ class GovGrantsAPI(ApiSuperClass):
         self.keywords = keywords
         self.date_range = date_range
 
+    @retry(wait=wait_random_exponential(multiplier=1, max=40), stop=stop_after_attempt(10))
     def get_count(self):
         url_count = f'{self.base_url}spending_by_award_count/'
         payload = {
@@ -65,8 +67,16 @@ class GovGrantsAPI(ApiSuperClass):
         }
         # wrench_logger.debug(payload)
         response = self._fetch_from_api(url_count, '', payload)
-        return int(response['results']['grants']) if response else None
+        if response is None:
+            wrench_logger.error(f'patents: Error unable to retrieve grant count')
+            return -1
+        elif 'results' not in response:
+            wrench_logger.error(f'patents: Error unable to retrieve grant count')
+            return -1
+        else:
+            return int(response['results']['grants'])
 
+    @retry(wait=wait_random_exponential(multiplier=1, max=40), stop=stop_after_attempt(10))
     def fetch_data(self, batch_size=100, last_record_sort_value=None, last_record_unique_id=None, page=None):
         url_data = f'{self.base_url}spending_by_award/'
         payload = {
@@ -106,11 +116,13 @@ class GovGrantsAPI(ApiSuperClass):
             response = self._fetch_from_api(url_data, '', payload)
         except Exception as e:
             response = None
+            wrench_logger.error(f'patents: Error unable to retrieve grant records')
 
         if response is not None:
             return response['results'], response['page_metadata'].get('last_record_sort_value'), response[
                 'page_metadata'].get('last_record_unique_id'), response['page_metadata'].get('hasNext')
         else:
+            wrench_logger.error(f'patents: Error unable to retrieve grant records')
             return None, None, None, None
 
 # --------------------------------------------------------------------------------------------------------
@@ -151,10 +163,9 @@ class GovGrantsProcessor(GovGrantsAPI):
             done = False
             retrieve_count = 0
             page = 1
-            retries = 0
             last_record_sort_value = None
             last_record_unique_id = None
-            while (not done) and (retrieve_count < download_count) and (retries < 3):
+            while (not done) and (retrieve_count < download_count):
                 try:
                     wrench_logger.debug('Grant: Before fetch_data')
                     batch_size = min(download_count - retrieve_count, self.batch_size)
@@ -164,11 +175,10 @@ class GovGrantsProcessor(GovGrantsAPI):
                                                                                                    page=page)
                     wrench_logger.debug(f'Grant: After fetch_data: {hasnext}')
                 except Exception as e:
-                    wrench_logger.error(f'Grants fetch error: {e}')
+                    wrench_logger.error(f'patents: Error unable to retrieve grant records: {e}')
                     data = None
 
                 if data is not None:
-                    retries = 0
                     page += 1
                     wrench_logger.debug(f'Fetched {len(data)} grants in batch {page}.')
                     wrench_logger.debug(
@@ -214,11 +224,10 @@ class GovGrantsProcessor(GovGrantsAPI):
                     done = not hasnext
 
                 else:
-                    wrench_logger.error('Failed to fetch the grant data.')
-                    retries += 1
+                    wrench_logger.error(f'patents: Error unable to retrieve grant records')
 
         except Exception as e:
-            wrench_logger.error(f'Grant ERROR fetch_data: {e}')
+            wrench_logger.error(f'patents: Error unable to retrieve grant records: {e}')
         finally:
             rdsInstance.close()
 

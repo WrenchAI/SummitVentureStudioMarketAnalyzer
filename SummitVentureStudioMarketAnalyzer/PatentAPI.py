@@ -155,10 +155,18 @@ class PatentAPI(ApiSuperClass):
         # wrench_logger.debug(json.dumps(payload, indent=2))
 
         response = self._fetch_from_api(self.base_url, headers, payload)
-        # wrench_logger.debug('QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ')
-        # wrench_logger.debug(json.dumps(response, indent=2))
-        return int(response.get('total_patent_count')) if response else -1
+        if response is None:
+            wrench_logger.error(f'patents: Error unable to retrieve patent count')
+            return -1
+        elif 'total_patent_count' not in response:
+            wrench_logger.error(f'patents: Error unable to retrieve patent count')
+            return -1
+        else:
+            # wrench_logger.debug('QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ')
+            # wrench_logger.debug(json.dumps(response, indent=2))
+            return int(response.get('total_patent_count'))
 
+    @retry(wait=wait_random_exponential(multiplier=1, max=40), stop=stop_after_attempt(10))
     def fetch_data(self, batch_size, last_record_unique_id=None):
         """
             last_record_unique_id: contains the page number to retrieve.  If None, then page 1
@@ -277,13 +285,12 @@ class PatentProcessor(PatentAPI):
             done = False
             retrieve_count = 0
             page = 1
-            retries = 0
 
             download_count = min(download_count, self.count)
             wrench_logger.debug(f'{download_count = }')
 
             last_record_unique_id = None
-            while (not done) and (retrieve_count < download_count) and (retries < 1):
+            while (not done) and (retrieve_count < download_count):
                 try:
                     batch_size = min(download_count - retrieve_count, self.batch_size)
                     data, last_record_sort_value, last_record_unique_id = self.fetch_data(batch_size, page)
@@ -291,7 +298,7 @@ class PatentProcessor(PatentAPI):
                     # wrench_logger.debug(data)
                     # wrench_logger.debug('HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH')
                 except Exception as e:
-                    wrench_logger.error(f'process_patents(): error in fetch_data() call')
+                    wrench_logger.error(f'patents: Error unable to retrieve patent records')
                     data = None
                     return_value = False
 
@@ -305,11 +312,13 @@ class PatentProcessor(PatentAPI):
                     if 'count' not in data:
                         done = True
                         return_value = False
+                        wrench_logger.error(f'patents: Error unable to retrieve patent records')
                         continue
 
                     if data['count'] == 0:
                         done = True
                         return_value = False
+                        wrench_logger.error(f'patents: Error unable to retrieve patent records')
                         continue
 
                     sql_all_statements = ''
@@ -355,8 +364,7 @@ class PatentProcessor(PatentAPI):
                             self._connect_to_rds()
 
                 else:
-                    wrench_logger.error('Failed to fetch the patent data.')
-                    retries += 1
+                    wrench_logger.error(f'patents: Error unable to retrieve patent records')
 
         finally:
             rdsInstance.close()

@@ -10,10 +10,10 @@ import requests
 import csv
 import pandas as pd
 
+from tenacity import retry, wait_random_exponential, stop_after_attempt
 from WrenchCL import ApiSuperClass
 from WrenchCL import wrench_logger
 from WrenchCL import rdsInstance
-from datetime import date, datetime
 
 
 class PitchBookAPI(ApiSuperClass):
@@ -36,6 +36,7 @@ class PitchBookAPI(ApiSuperClass):
             return None
 
 
+    @retry(wait=wait_random_exponential(multiplier=1, max=40), stop=stop_after_attempt(10))
     def fetch_data(self,
                    keywords,
                    search_options,
@@ -75,9 +76,6 @@ class PitchBookAPI(ApiSuperClass):
 
             deals_list = []
             done = False
-            retries = 0
-            retry_count = 3
-            retry_sleep = 3
             while not done:
                 try:
                     # print(api_endpoint)
@@ -94,23 +92,20 @@ class PitchBookAPI(ApiSuperClass):
                                     deals_list.append(dealer['dealId'])
                         done = True
                     else:
+                        wrench_logger.error(f'pitchbook: Error unable to retrieve ptichbook count')
                         raise Exception
 
-                except Exception:
+                except Exception as e:
                     # TODO = log error
-                    wrench_logger.error('Error in retrieving pitchbook data')
-                    wrench_logger.error(api_endpoint, params)
-                    retries += 1
-                    done = retries > retry_count
-                    if not done:
-                        time.sleep(retry_sleep)
-                    continue
+                    wrench_logger.error(f'pitchbook: Error unable to retrieve ptichbook count: {e}')
+                    wrench_logger.debug(api_endpoint, params)
 
             # print(deals_list)
             results[keyword] = deals_list
         
         return results
 
+    @retry(wait=wait_random_exponential(multiplier=1, max=40), stop=stop_after_attempt(10))
     def search_deal_details(self,
                             ids,
                             retry_count = 3,
@@ -151,7 +146,6 @@ class PitchBookAPI(ApiSuperClass):
             wrench_logger.debug(url)
 
             done = False
-            retries = 0
             while not done:
                 try:
                     data = self._fetch_from_api(url, headers, '')
@@ -199,14 +193,7 @@ class PitchBookAPI(ApiSuperClass):
                         raise Exception
 
                 except Exception as e:
-                    wrench_logger.error(f'ERROR retrieving details of a pitchbook, {e}')
-
-                    retries += 1
-                    done = retries > retry_count
-                    if not done:
-                        time.sleep(retry_sleep)
-
-                    continue
+                    wrench_logger.error(f'pitchbook: Error unable to retrieve grant records: {e}')
 
         convert_dict = {'dealnumber': int, 'dealestimated': bool}
         return results.astype(convert_dict)
@@ -244,6 +231,7 @@ class PitchBookProcessor(PitchBookAPI):
         sql = f"SET SESSION myapp.deal_id_var TO {self.deal_id}"
         rdsInstance.execute_query(sql)
 
+    @retry(wait=wait_random_exponential(multiplier=1, max=40), stop=stop_after_attempt(10))
     def get_count(self):
         return len(self._get_pitchbook_ids()[1])
 
@@ -272,9 +260,12 @@ class PitchBookProcessor(PitchBookAPI):
             self._insert_pitchbooks(query_results, data)
 
             wrench_logger.info(f'{to_download} PitchBook records downloaded')
+        except Exception as e:
+            wrench_logger.error(f'pitchbook: Error unable to retrieve ptichbook records: {e}')
         finally:
             rdsInstance.close()
 
+    @retry(wait=wait_random_exponential(multiplier=1, max=40), stop=stop_after_attempt(10))
     def _get_pitchbook_ids(self):
         search_options1 = {
             'dealSize': '.5^100',
@@ -351,11 +342,15 @@ class PitchBookProcessor(PitchBookAPI):
                 for key, value in data.items():
                     ids_set.update(value)
 
+        except Exception as e:
+            wrench_logger.error(f'pitchbook: Error unable to retrieve ptichbook records: {e}')
+            return
+
         finally:
             pass
 
-        wrench_logger.debug(f'IDS SET: {len(ids_set)}')
-        wrench_logger.debug(f'{ids_set}')
+        # wrench_logger.debug(f'IDS SET: {len(ids_set)}')
+        # wrench_logger.debug(f'{ids_set}')
         return query_results, list(ids_set)
 
 
