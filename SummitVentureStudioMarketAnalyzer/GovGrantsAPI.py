@@ -63,6 +63,7 @@ class GovGrantsAPI(ApiSuperClass):
                 }]
             }
         }
+        # wrench_logger.debug(payload)
         response = self._fetch_from_api(url_count, '', payload)
         return int(response['results']['grants']) if response else None
 
@@ -76,7 +77,6 @@ class GovGrantsAPI(ApiSuperClass):
                     'start_date': self.date_range['start_date'],
                     'end_date': self.date_range['end_date']
                 }],
-                # 'award_type_codes': ['A', 'B', 'C', 'D']
                 'award_type_codes': ['02', '03', '04', '05']
             },
             'fields': [
@@ -101,7 +101,7 @@ class GovGrantsAPI(ApiSuperClass):
             'last_record_unique_id': last_record_unique_id,
             'page': page
         }
-
+        # wrench_logger.debug(json.dumps(payload, indent=2))
         try:
             response = self._fetch_from_api(url_data, '', payload)
         except Exception as e:
@@ -206,6 +206,7 @@ class GovGrantsProcessor(GovGrantsAPI):
                             break
 
                     # save DF to RDS
+                    # print(df_grants)
                     self.insert_grants_df(df_grants)
 
                     wrench_logger.debug(f'Grants retrieved: {retrieve_count:,}')
